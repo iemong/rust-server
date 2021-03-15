@@ -2,7 +2,7 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use reqwest;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 struct RescueLog {
     id: i32,
     date: String,
@@ -29,7 +29,7 @@ async fn get() -> Result<(Vec<RescueLog>), reqwest::Error> {
 async fn api_config(cfg: &mut web::ServiceConfig) {
 
     let result = get().await.unwrap();
-    println!(result);
+    println!("{:?}", result);
     cfg.service(
         web::resource("/test")
             .route(web::get().to(|| HttpResponse::Ok().content_type("application/json").body("ok")))
