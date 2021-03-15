@@ -1,9 +1,38 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
+use reqwest;
+use serde::{Deserialize, Serialize};
 
-fn api_config(cfg: &mut web::ServiceConfig) {
+#[derive(Deserialize, Serialize)]
+struct RescueLog {
+    id: i32,
+    date: String,
+    productivity_pulse: u8,
+    total_hours: f32,
+    total_duration_formatted: String,
+}
+
+async fn get() -> Result<(Vec<RescueLog>), reqwest::Error> {
+    let key = "API_KEY";
+    let token = dotenv::var(key).unwrap();
+
+    let url = format!(
+        "https://www.rescuetime.com/anapi/daily_summary_feed?key={token}",
+        token = token
+    );
+    let res = reqwest::get(url).await.unwrap();
+
+    let logs: Vec<RescueLog> = res.json().await.unwrap();
+
+    Ok(logs)
+}
+
+async fn api_config(cfg: &mut web::ServiceConfig) {
+
+    let result = get().await.unwrap();
+    println!(result);
     cfg.service(
         web::resource("/test")
-            .route(web::get().to(|| HttpResponse::Ok().body("test")))
+            .route(web::get().to(|| HttpResponse::Ok().content_type("application/json").body("ok")))
             .route(web::head().to(|| HttpResponse::MethodNotAllowed())),
     );
 }
