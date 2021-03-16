@@ -1,6 +1,7 @@
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, get, App, HttpResponse, HttpServer};
 use reqwest;
 use serde::{Deserialize, Serialize};
+use reqwest::Response;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct RescueLog {
@@ -11,7 +12,7 @@ struct RescueLog {
     total_duration_formatted: String,
 }
 
-async fn get() -> Result<(Vec<RescueLog>), reqwest::Error> {
+async fn get_rescue_log() -> Result<Response, reqwest::Error> {
     let key = "API_KEY";
     let token = dotenv::var(key).unwrap();
 
@@ -19,22 +20,17 @@ async fn get() -> Result<(Vec<RescueLog>), reqwest::Error> {
         "https://www.rescuetime.com/anapi/daily_summary_feed?key={token}",
         token = token
     );
-    let res = reqwest::get(url).await.unwrap();
-
-    let logs: Vec<RescueLog> = res.json().await.unwrap();
-
-    Ok(logs)
+    let res = reqwest::get(url).await?;
+    Ok(res)
 }
 
-async fn api_config(cfg: &mut web::ServiceConfig) {
+#[get("/api")]
+async fn api() -> Result<HttpResponse, actix_web::Error>{
 
-    let result = get().await.unwrap();
-    println!("{:?}", result);
-    cfg.service(
-        web::resource("/test")
-            .route(web::get().to(|| HttpResponse::Ok().content_type("application/json").body("ok")))
-            .route(web::head().to(|| HttpResponse::MethodNotAllowed())),
-    );
+    let result = get_rescue_log().await?;
+    let logs: Vec<RescueLog> = result.json().await?;
+    println!("{:?}", logs);
+    Ok(HttpResponse::Ok().json(logs))
 }
 
 fn app_config(cfg: &mut web::ServiceConfig) {
@@ -46,14 +42,15 @@ fn app_config(cfg: &mut web::ServiceConfig) {
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), actix_web::Error> {
     HttpServer::new(|| {
         App::new()
             .configure(app_config)
-            .service(web::scope("api").configure(api_config))
+            .service(api)
             .route("/", web::get().to(|| HttpResponse::Ok().body("/")))
     })
     .bind("127.0.0.1:8080")?
     .run()
-    .await
+    .await?;
+    Ok(())
 }
